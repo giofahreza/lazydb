@@ -20312,7 +20312,6 @@ impl App {
             .load_states
             .insert(owner.clone(), ExplorerLoadState::Loading { request_id });
         state.pending_requests.insert(owner, request.clone());
-        state.status = ExplorerConnectionStatus::Syncing;
         vec![Command::LoadCatalogPage(request)]
     }
 
@@ -20900,6 +20899,22 @@ impl App {
             }
         };
 
+        // Show each database and its schemas, preserving the full catalog view
+        // users expect when opening a connection.
+        if matches!(&request.key.target, CatalogTarget::Databases) {
+            let database_ids = next_explorer
+                .profiles
+                .get(&profile_id)
+                .into_iter()
+                .flat_map(|profile| profile.catalog.roots())
+                .collect::<Vec<_>>();
+            for database in database_ids {
+                next_explorer
+                    .expanded
+                    .insert(ExplorerNodeId::Catalog(database.clone()));
+            }
+        }
+
         let state = next_explorer.profiles.get_mut(&profile_id).unwrap();
         if let CatalogTarget::Objects { schema, group } = &request.key.target {
             if let Some(current) = state.catalog.group_state(schema, *group).cloned() {
@@ -21033,45 +21048,19 @@ impl App {
                 CatalogRequestIntent::Continuation,
             ));
         }
-        let database_selector_open = matches!(self.overlay, Some(Overlay::DatabaseSelector(_)));
-        match &request.key.target {
-            CatalogTarget::Databases => {
-                if !database_selector_open {
-                    for entry in page.entries {
-                        commands.extend(self.start_catalog_request_for_connection(
-                            request.key.connection,
-                            CatalogTarget::schemas(entry.id).unwrap(),
-                            None,
-                            CatalogRequestIntent::Automatic,
-                        ));
-                    }
-                }
-            }
-            CatalogTarget::Schemas { .. } => {
-                for entry in page.entries {
+        if matches!(&request.key.target, CatalogTarget::Databases)
+            && !matches!(self.overlay, Some(Overlay::DatabaseSelector(_)))
+        {
+            for entry in &page.entries {
+                if entry.kind == CatalogKind::Database {
                     commands.extend(self.start_catalog_request_for_connection(
                         request.key.connection,
-                        CatalogTarget::groups(entry.id).unwrap(),
+                        CatalogTarget::schemas(entry.id.clone()).unwrap(),
                         None,
                         CatalogRequestIntent::Automatic,
                     ));
                 }
             }
-            CatalogTarget::Groups { schema } => {
-                for summary in page
-                    .group_summaries
-                    .into_iter()
-                    .filter(|summary| search_preload_group(summary.group))
-                {
-                    commands.extend(self.start_catalog_request_for_connection(
-                        request.key.connection,
-                        CatalogTarget::objects(schema.clone(), summary.group).unwrap(),
-                        None,
-                        CatalogRequestIntent::Automatic,
-                    ));
-                }
-            }
-            CatalogTarget::Objects { .. } | CatalogTarget::RelationChildren { .. } => {}
         }
         if self.active_console_opt().is_some()
             && self.completion_request_is_current()
@@ -23197,8 +23186,8 @@ impl App {
     /// A successful connection does not imply that this database's catalog is
     /// loaded. In particular, rebinding a console can reuse an existing
     /// session while its target database is still cold. Start at the narrowest
-    /// missing namespace and let the catalog page reducer continue loading
-    /// schemas and object groups.
+    /// missing namespace; deeper catalog levels load only when the user opens
+    /// their Explorer nodes.
     fn ensure_editor_target_catalog(&mut self, target: &ExecutionTarget) -> Vec<Command> {
         let profile_id = target.profile_id;
         let Some(connection) = self
@@ -26147,20 +26136,6 @@ fn relation_has_pending_edits(tab: &RelationTab) -> bool {
     tab.edit.as_ref().is_some_and(|edit| {
         edit.has_dirty_rows() || edit.has_unfinished_cell_edit() || edit.has_pending_work()
     })
-}
-
-fn search_preload_group(group: crate::db::catalog::ObjectGroup) -> bool {
-    matches!(
-        group,
-        crate::db::catalog::ObjectGroup::Tables
-            | crate::db::catalog::ObjectGroup::Views
-            | crate::db::catalog::ObjectGroup::MaterializedViews
-            | crate::db::catalog::ObjectGroup::Functions
-            | crate::db::catalog::ObjectGroup::Procedures
-            | crate::db::catalog::ObjectGroup::Sequences
-            | crate::db::catalog::ObjectGroup::Types
-            | crate::db::catalog::ObjectGroup::Triggers
-    )
 }
 
 fn add_explorer_profile(

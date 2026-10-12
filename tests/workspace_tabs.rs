@@ -1779,6 +1779,18 @@ fn restored_relation_waits_for_catalog_before_loading() {
         true,
     )
     .unwrap();
+    // Lazy cascade: schemas auto-load but groups only preload when the schema
+    // is expanded. Mark the schema expanded before loading Schemas so the
+    // cascade fires Groups. Groups→Objects cascade requires the group to be
+    // expanded, but `retain_existing_expansion` prunes expanded groups that
+    // don't yet exist — so the test fixture manually fires the Objects request
+    // via ExplorerLoadTarget instead of relying on the cascade.
+    app.explorer
+        .normalized
+        .expanded
+        .insert(lazydb::model::explorer::ExplorerNodeId::Catalog(
+            schema_id.clone(),
+        ));
     let commands = app.update(Action::CatalogPageLoaded(
         CatalogPage::new(&schema_request, vec![schema], CatalogCount::Exact(1), None).unwrap(),
     ));
@@ -1809,7 +1821,17 @@ fn restored_relation_waits_for_catalog_before_loading() {
     );
 
     let tables_target = CatalogTarget::objects(schema_id.clone(), ObjectGroup::Tables).unwrap();
-    let tables_request = pending_catalog_request(&app, profile_id, &tables_target);
+    // Lazy cascade: the Objects cascade doesn't fire here because the group
+    // isn't yet in `expanded` when the Groups page loads (expanded entries
+    // get pruned if the group doesn't yet exist). Simulate the user expanding
+    // the group by firing the Objects request explicitly.
+    let tables_request = {
+        let commands = app.update(Action::ExplorerLoadTarget(tables_target));
+        match commands.as_slice() {
+            [Command::LoadCatalogPage(request)] => request.clone(),
+            commands => panic!("unexpected commands: {commands:?}"),
+        }
+    };
     let first_relation = CatalogEntry::relation(
         first_relation_id.clone(),
         schema_id,
@@ -2036,6 +2058,18 @@ fn restored_relation_at_tables_request(
         true,
     )
     .unwrap();
+    // Lazy cascade: schemas auto-load but groups only preload when the schema
+    // is expanded. Mark the schema expanded before loading Schemas so the
+    // cascade fires Groups. Groups→Objects cascade requires the group to be
+    // expanded, but `retain_existing_expansion` prunes expanded groups that
+    // don't yet exist — so the test fixture manually fires the Objects request
+    // via ExplorerLoadTarget instead of relying on the cascade.
+    app.explorer
+        .normalized
+        .expanded
+        .insert(lazydb::model::explorer::ExplorerNodeId::Catalog(
+            schema_id.clone(),
+        ));
     app.update(Action::CatalogPageLoaded(
         CatalogPage::new(&schema_request, vec![schema], CatalogCount::Exact(1), None).unwrap(),
     ));
@@ -2054,7 +2088,14 @@ fn restored_relation_at_tables_request(
         .unwrap(),
     ));
     let tables_target = CatalogTarget::objects(schema_id.clone(), ObjectGroup::Tables).unwrap();
-    let tables_request = pending_catalog_request(&app, profile_id, &tables_target);
+    // Lazy cascade: simulate the user explicitly opening the tables group.
+    let tables_request = {
+        let commands = app.update(Action::ExplorerLoadTarget(tables_target));
+        match commands.as_slice() {
+            [Command::LoadCatalogPage(request)] => request.clone(),
+            commands => panic!("unexpected commands: {commands:?}"),
+        }
+    };
     (
         app,
         profile_id,

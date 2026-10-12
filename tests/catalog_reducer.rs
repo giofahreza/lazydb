@@ -811,6 +811,15 @@ fn replacement_preserves_stable_selection_and_expansion_then_falls_back_to_ances
     let (mut app, profile) = connected_app();
     let database = database(profile.id, "app");
     let initial = initial_request(&mut app, &profile);
+    // Lazy cascade: only preload schemas for an expanded database.
+    app.explorer
+        .normalized
+        .expanded
+        .insert(ExplorerNodeId::Profile(profile.id));
+    app.explorer
+        .normalized
+        .expanded
+        .insert(ExplorerNodeId::Catalog(database.id.clone()));
     app.update(Action::CatalogPageLoaded(page(
         &initial,
         vec![database.clone()],
@@ -819,6 +828,11 @@ fn replacement_preserves_stable_selection_and_expansion_then_falls_back_to_ances
     let schemas_target = CatalogTarget::schemas(database.id.clone()).unwrap();
     let schemas = pending_request(&app, profile.id, &schemas_target);
     let schema = schema(profile.id, &database.id, "public");
+    // Lazy cascade: only preload groups for an expanded schema.
+    app.explorer
+        .normalized
+        .expanded
+        .insert(ExplorerNodeId::Catalog(schema.id.clone()));
     app.update(Action::CatalogPageLoaded(page(
         &schemas,
         vec![schema.clone()],
@@ -1350,6 +1364,14 @@ fn accepted_object_page_synchronizes_group_count_in_both_directions() {
     let schema = install_schema(&mut app, &profile, &database);
     let target = CatalogTarget::groups(schema.id.clone()).unwrap();
     let groups = pending_request(&app, profile.id, &target);
+    // Lazy cascade: only preload object lists for expanded groups.
+    app.explorer
+        .normalized
+        .expanded
+        .insert(ExplorerNodeId::Group {
+            parent: schema.id.clone(),
+            group: ObjectGroup::Tables,
+        });
     app.update(Action::CatalogPageLoaded(
         CatalogPage::groups(
             &groups,
@@ -1418,6 +1440,14 @@ fn accepted_object_page_does_not_downgrade_group_count_knowledge() {
     let schema = install_schema(&mut app, &profile, &database);
     let groups_target = CatalogTarget::groups(schema.id.clone()).unwrap();
     let groups = pending_request(&app, profile.id, &groups_target);
+    // Lazy cascade: only preload object lists for expanded groups.
+    app.explorer
+        .normalized
+        .expanded
+        .insert(ExplorerNodeId::Group {
+            parent: schema.id.clone(),
+            group: ObjectGroup::Tables,
+        });
     app.update(Action::CatalogPageLoaded(
         CatalogPage::groups(
             &groups,
@@ -1504,6 +1534,21 @@ fn search_preload_schedules_supported_non_relation_groups() {
         None,
     )
     .unwrap();
+    // Lazy cascade: only preload object lists for expanded groups.
+    app.explorer
+        .normalized
+        .expanded
+        .insert(ExplorerNodeId::Group {
+            parent: schema.id.clone(),
+            group: ObjectGroup::Tables,
+        });
+    app.explorer
+        .normalized
+        .expanded
+        .insert(ExplorerNodeId::Group {
+            parent: schema.id.clone(),
+            group: ObjectGroup::Triggers,
+        });
     let commands = app.update(Action::CatalogPageLoaded(page));
     assert!(commands.iter().any(|command| matches!(
         command,
@@ -1547,6 +1592,15 @@ fn normalized_group_retry_permission_and_load_more_rows_select_and_load_precise_
     let schema = install_schema(&mut app, &profile, &database);
     let groups_target = CatalogTarget::groups(schema.id.clone()).unwrap();
     let groups_request = pending_request(&app, profile.id, &groups_target);
+    // Lazy cascade: this test asserts the cascade from Groups → Objects fires,
+    // so the Tables group needs to be marked expanded first.
+    app.explorer
+        .normalized
+        .expanded
+        .insert(ExplorerNodeId::Group {
+            parent: schema.id.clone(),
+            group: ObjectGroup::Tables,
+        });
     let groups_page = CatalogPage::groups(
         &groups_request,
         vec![CatalogGroupSummary {
@@ -1789,6 +1843,18 @@ fn pending_request(app: &App, profile: Uuid, target: &CatalogTarget) -> CatalogR
 fn install_database(app: &mut App, profile: &ConnectionProfile) -> CatalogEntry {
     let entry = database(profile.id, "app");
     let request = initial_request(app, profile);
+    // Lazy cascade in `accept_catalog_page` only fans out schema loads for
+    // databases the user has actually expanded. Marking the profile and the
+    // freshly installed database as expanded mirrors what an interactive user
+    // would do.
+    app.explorer
+        .normalized
+        .expanded
+        .insert(ExplorerNodeId::Profile(profile.id));
+    app.explorer
+        .normalized
+        .expanded
+        .insert(ExplorerNodeId::Catalog(entry.id.clone()));
     app.update(Action::CatalogPageLoaded(page(
         &request,
         vec![entry.clone()],
@@ -1805,6 +1871,11 @@ fn install_schema(
     let target = CatalogTarget::schemas(database.id.clone()).unwrap();
     let request = pending_request(app, profile.id, &target);
     let entry = schema(profile.id, &database.id, "public");
+    // Lazy cascade: a schema only preloads its groups when expanded.
+    app.explorer
+        .normalized
+        .expanded
+        .insert(ExplorerNodeId::Catalog(entry.id.clone()));
     app.update(Action::CatalogPageLoaded(page(
         &request,
         vec![entry.clone()],
@@ -1821,6 +1892,14 @@ fn install_table(
 ) -> CatalogEntry {
     let target = CatalogTarget::groups(schema.id.clone()).unwrap();
     let request = pending_request(app, profile.id, &target);
+    // Lazy cascade: a group only preloads its object list when expanded.
+    app.explorer
+        .normalized
+        .expanded
+        .insert(ExplorerNodeId::Group {
+            parent: schema.id.clone(),
+            group: ObjectGroup::Tables,
+        });
     let commands = app.update(Action::CatalogPageLoaded(
         CatalogPage::groups(
             &request,

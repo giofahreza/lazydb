@@ -1172,7 +1172,60 @@ async fn connects_loads_catalog_and_executes_through_runtime() {
         "Ada"
     );
 
+    // Lazy cascade: after Refresh, schemas load eagerly but tables only load
+    // when their owner is expanded. Walk the catalog to find users.
     dispatch(&mut app, &mut runtime, Action::RefreshCatalog);
+    drain_catalog(&mut app, &mut runtime, &mut receiver).await;
+    let database_id = app
+        .explorer
+        .normalized
+        .profiles
+        .values()
+        .next()
+        .and_then(|p| p.catalog.roots().first().cloned())
+        .expect("at least one database after connect");
+    app.explorer
+        .normalized
+        .expanded
+        .insert(lazydb::model::explorer::ExplorerNodeId::Catalog(
+            database_id.clone(),
+        ));
+    let schema_target = lazydb::db::catalog::CatalogTarget::schemas(database_id.clone()).unwrap();
+    let commands = app.update(lazydb::action::Action::ExplorerLoadTarget(schema_target));
+    for command in commands {
+        runtime.dispatch(command);
+    }
+    drain_catalog(&mut app, &mut runtime, &mut receiver).await;
+    let schema_id = app
+        .explorer
+        .normalized
+        .profiles
+        .values()
+        .next()
+        .and_then(|p| p.catalog.children(&database_id).first().cloned())
+        .expect("at least one schema after expand");
+    app.explorer
+        .normalized
+        .expanded
+        .insert(lazydb::model::explorer::ExplorerNodeId::Catalog(
+            schema_id.clone(),
+        ));
+    app.explorer
+        .normalized
+        .expanded
+        .insert(lazydb::model::explorer::ExplorerNodeId::Group {
+            parent: schema_id.clone(),
+            group: lazydb::db::catalog::ObjectGroup::Tables,
+        });
+    let group_target = lazydb::db::catalog::CatalogTarget::objects(
+        schema_id,
+        lazydb::db::catalog::ObjectGroup::Tables,
+    )
+    .unwrap();
+    let commands = app.update(lazydb::action::Action::ExplorerLoadTarget(group_target));
+    for command in commands {
+        runtime.dispatch(command);
+    }
     drain_catalog(&mut app, &mut runtime, &mut receiver).await;
     assert!(app.explorer.nodes.iter().any(|node| node.name == "users"));
 

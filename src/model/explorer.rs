@@ -1948,16 +1948,15 @@ impl ExplorerTreeState {
         let Some(profile) = self.profiles.get_mut(&profile_id) else {
             return Err(ExplorerTreeError::ProfileNotFound { profile_id });
         };
-        let new_namespace_ids = entries
+        let new_database_ids = entries
             .iter()
-            .filter(|entry| matches!(entry.kind, CatalogKind::Database | CatalogKind::Schema))
+            .filter(|entry| entry.kind == CatalogKind::Database)
             .filter(|entry| !profile.catalog.entries().contains_key(&entry.id))
             .map(|entry| entry.id.clone())
             .collect::<Vec<_>>();
         let removed = profile.catalog.replace_page(&owner, entries)?;
-        for id in new_namespace_ids {
-            self.expanded.insert(ExplorerNodeId::Catalog(id));
-        }
+        self.expanded
+            .extend(new_database_ids.into_iter().map(ExplorerNodeId::Catalog));
         self.reconcile_after_catalog_change(fallback);
         Ok(removed)
     }
