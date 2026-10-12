@@ -11,6 +11,7 @@ mod completion;
 mod derived_result;
 mod diagnostics;
 mod dialect;
+mod editable_result;
 pub mod embedded;
 mod execution;
 mod format;
@@ -45,6 +46,7 @@ pub use derived_result::{
 };
 pub use diagnostics::{DiagnosticScheduleKey, SqlDiagnostic, diagnose_sql};
 pub use dialect::SqlDialect;
+pub use editable_result::{EditableResultIdentifier, EditableResultSource, editable_result_source};
 pub use execution::ExecutionDraft;
 pub use format::{FormatError, format_sql};
 pub use highlight::{
