@@ -12445,16 +12445,26 @@ impl App {
                     self.pending_dashboard_target = None;
                     return commands;
                 }
-                let interrupted_catalog_targets = if editor_target_switch.is_some() {
-                    self.explorer
-                        .normalized
-                        .profiles
-                        .get_mut(&profile_id)
-                        .map(|state| state.recover_pending_requests())
-                        .unwrap_or_default()
-                } else {
-                    Vec::new()
-                };
+                let catalog_session = self
+                    .explorer
+                    .catalog_sessions
+                    .get(&profile_id)
+                    .copied()
+                    .filter(|catalog_identity| {
+                        self.catalog_session_can_serve_database(*catalog_identity, &target)
+                    });
+                let catalog_session_changed = catalog_session.is_none();
+                let interrupted_catalog_targets =
+                    if editor_target_switch.is_some() || catalog_session_changed {
+                        self.explorer
+                            .normalized
+                            .profiles
+                            .get_mut(&profile_id)
+                            .map(|state| state.recover_pending_requests())
+                            .unwrap_or_default()
+                    } else {
+                        Vec::new()
+                    };
                 let Some(state) = self.explorer.normalized.profiles.get_mut(&profile_id) else {
                     return Vec::new();
                 };
@@ -12513,43 +12523,45 @@ impl App {
                     manager.operation = None;
                     manager.set_message(ProfileMessageLevel::Success, "Connected");
                 }
-                let catalog_session = self
-                    .explorer
-                    .catalog_sessions
-                    .get(&profile_id)
-                    .copied()
-                    .filter(|catalog_identity| {
-                        self.catalog_session_can_serve_database(*catalog_identity, &target)
-                    });
                 if catalog_session.is_none() {
                     self.explorer.catalog_sessions.insert(profile_id, identity);
                 }
                 let commands_for_catalog = if profile_kind == DatabaseKind::Redis {
                     Vec::new()
                 } else if editor_target_switch.is_none() {
-                    catalog_session
-                        .or_else(|| self.explorer.catalog_sessions.get(&profile_id).copied())
-                        .map(|catalog_identity| {
-                            self.start_catalog_request_for_connection(
-                                catalog_identity,
-                                CatalogTarget::Databases,
-                                None,
-                                CatalogRequestIntent::Automatic,
-                            )
-                        })
-                        .unwrap_or_default()
+                    let catalog_identity = catalog_session.unwrap_or(identity);
+                    self.start_catalog_request_for_connection(
+                        catalog_identity,
+                        CatalogTarget::Databases,
+                        None,
+                        if catalog_session_changed {
+                            CatalogRequestIntent::Refresh
+                        } else {
+                            CatalogRequestIntent::Automatic
+                        },
+                    )
                 } else {
-                    let mut commands = interrupted_catalog_targets
-                        .into_iter()
-                        .flat_map(|target| {
-                            self.start_catalog_request_for_connection(
-                                identity,
-                                target,
-                                None,
-                                CatalogRequestIntent::Refresh,
-                            )
-                        })
-                        .collect::<Vec<_>>();
+                    let catalog_identity = catalog_session.unwrap_or(identity);
+                    let mut commands = if catalog_session_changed {
+                        self.start_catalog_request_for_connection(
+                            catalog_identity,
+                            CatalogTarget::Databases,
+                            None,
+                            CatalogRequestIntent::Refresh,
+                        )
+                    } else {
+                        interrupted_catalog_targets
+                            .into_iter()
+                            .flat_map(|target| {
+                                self.start_catalog_request_for_connection(
+                                    catalog_identity,
+                                    target,
+                                    None,
+                                    CatalogRequestIntent::Refresh,
+                                )
+                            })
+                            .collect::<Vec<_>>()
+                    };
                     commands.extend(self.ensure_editor_target_catalog(&target));
                     commands
                 };
@@ -12898,14 +12910,38 @@ impl App {
                         self.explorer
                             .catalog_sessions
                             .remove(&connection.profile_id);
-                        if let Some(replacement) = self.sessions.iter().find(|session| {
-                            session.identity.profile_id == connection.profile_id
-                                && session.status == crate::model::session::SessionStatus::Connected
-                        }) {
+                        let replacement = self
+                            .sessions
+                            .iter()
+                            .find(|session| {
+                                session.identity.profile_id == connection.profile_id
+                                    && session.status
+                                        == crate::model::session::SessionStatus::Connected
+                            })
+                            .cloned();
+                        if let Some(replacement) = replacement {
                             self.explorer
                                 .catalog_sessions
                                 .insert(connection.profile_id, replacement.identity);
+                            if let Some(state) = self
+                                .explorer
+                                .normalized
+                                .profiles
+                                .get_mut(&connection.profile_id)
+                            {
+                                state.recover_pending_requests();
+                            }
+                            return self.start_catalog_request_for_connection(
+                                replacement.identity,
+                                CatalogTarget::Databases,
+                                None,
+                                CatalogRequestIntent::Refresh,
+                            );
                         }
+                        self.clear_profile_catalog(
+                            connection.profile_id,
+                            ExplorerConnectionStatus::Offline,
+                        );
                     }
                     return Vec::new();
                 }
