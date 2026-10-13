@@ -84,20 +84,17 @@ open-sql-history = ["F7"]
 open-consoles = ["F6"]
 # F9 opens the update center.
 update = ["F9"]
-# Tab focuses the next pane.
-# Shift-Tab focuses the previous pane.
-focus-next-pane = ["Tab"]
-focus-previous-pane = ["Shift-Tab"]
+# Pane focus uses directional Ctrl+h/j/k/l bindings below.
+# Tab and Ctrl-Tab switch the view inside the focused Results pane.
+focus-next-pane = []
+focus-previous-pane = []
 # F5 runs the current statement.
 run-statement = ["F5"]
 # Shift-F5 runs the complete SQL buffer.
 run-buffer = ["Shift-F5"]
-# Ctrl-N selects the next tab.
-# g-t and ]-t are next-tab aliases.
-next-tab = ["Ctrl-n", "g t", "] t"]
-# Ctrl-P selects the previous tab.
-# g-T and [-t are previous-tab aliases.
-previous-tab = ["Ctrl-p", "g T", "[ t"]
+# ] selects the next workspace tab; [ selects the previous one.
+next-tab = ["]"]
+previous-tab = ["["]
 # Ctrl-Shift-N swaps the active tab with the tab on its right.
 move-tab-right = ["Ctrl-Shift-n"]
 # Ctrl-Shift-P swaps the active tab with the tab on its left.
@@ -121,14 +118,11 @@ open-target-selector = ["Space d"]
 open-database-selector = ["Space D"]
 
 [keybindings.panes]
-# Ctrl-w h focuses the left pane.
-focus-pane-left = ["Ctrl-w h"]
-# Ctrl-w j focuses the pane below.
-focus-pane-down = ["Ctrl-w j"]
-# Ctrl-w k focuses the pane above.
-focus-pane-up = ["Ctrl-w k"]
-# Ctrl-w l focuses the right pane.
-focus-pane-right = ["Ctrl-w l"]
+# Ctrl+h/j/k/l moves focus left/down/up/right between panes.
+focus-pane-left = ["Ctrl+h", "Ctrl-w h"]
+focus-pane-down = ["Ctrl+j", "Ctrl-w j"]
+focus-pane-up = ["Ctrl+k", "Ctrl-w k"]
+focus-pane-right = ["Ctrl+l", "Ctrl-w l"]
 # Ctrl-w f maximizes the focused pane.
 toggle-pane-maximized = ["Ctrl-w f"]
 # Optional synchronized Kitty/LazyDB maximize. Kitty must forward this shortcut.

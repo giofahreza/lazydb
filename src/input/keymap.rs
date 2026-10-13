@@ -1164,6 +1164,9 @@ impl Keymap {
         {
             return Some(action);
         }
+        if let Some(action) = map_result_view_tab(event, app) {
+            return Some(action);
+        }
         if app.overlay.is_none()
             && app.focus == Focus::Editor
             && matches!(
@@ -1270,7 +1273,14 @@ impl Keymap {
             return Some(Action::FocusPrevious);
         }
 
-        if tab_shortcuts_have_focus(app) {
+        let bracket_is_editor_text = app.focus == Focus::Editor
+            && matches!(
+                app.active_editor_mode(),
+                EditorMode::Insert | EditorMode::Replace
+            )
+            && event.modifiers.is_empty()
+            && matches!(event.code, KeyCode::Char('[' | ']'));
+        if tab_shortcuts_have_focus(app) && !bracket_is_editor_text {
             if matches_tab_binding(&self.bindings, "move-tab-right", event) {
                 return Some(Action::MoveTabRight);
             }
@@ -4752,6 +4762,52 @@ fn map_data_query(event: KeyEvent, app: &App) -> Option<Action> {
         };
     }
     None
+}
+
+fn map_result_view_tab(event: KeyEvent, app: &App) -> Option<Action> {
+    let is_view_tab = match (event.code, event.modifiers) {
+        (KeyCode::Tab, KeyModifiers::NONE | KeyModifiers::CONTROL)
+        | (KeyCode::BackTab, KeyModifiers::NONE | KeyModifiers::CONTROL) => true,
+        _ => false,
+    };
+    is_view_tab.then(|| result_view_tab_action(app)).flatten()
+}
+
+pub(crate) fn result_view_tab_action(app: &App) -> Option<Action> {
+    if app.focus != Focus::Results {
+        return None;
+    }
+    match app.tabs.get(app.active_tab)? {
+        crate::model::tab::WorkspaceTab::Sql(tab) if tab.query.focus.is_none() => {
+            Some(Action::SetResultView(match tab.result_view {
+                crate::model::tab::ResultView::Data => crate::model::tab::ResultView::Output,
+                crate::model::tab::ResultView::Output | crate::model::tab::ResultView::Plan => {
+                    crate::model::tab::ResultView::Data
+                }
+            }))
+        }
+        crate::model::tab::WorkspaceTab::Relation(tab) if tab.query.focus.is_none() => {
+            Some(Action::SetRelationView(match tab.view {
+                crate::model::relation::RelationView::Data => {
+                    crate::model::relation::RelationView::Ddl
+                }
+                crate::model::relation::RelationView::Ddl => {
+                    crate::model::relation::RelationView::Data
+                }
+            }))
+        }
+        crate::model::tab::WorkspaceTab::PrincipalDdl(tab) => {
+            Some(Action::SetPrincipalView(match tab.view {
+                crate::model::principal::PrincipalView::Overview => {
+                    crate::model::principal::PrincipalView::Ddl
+                }
+                crate::model::principal::PrincipalView::Ddl => {
+                    crate::model::principal::PrincipalView::Overview
+                }
+            }))
+        }
+        _ => None,
+    }
 }
 
 fn active_data_query_has_focus(app: &App) -> bool {

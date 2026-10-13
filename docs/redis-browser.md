@@ -82,7 +82,7 @@ snapshot. In Preview, the read-only Vim buffer supports `hjkl`, `w`/`b`/`e`,
 and `yy`/Visual `y` copying. `Ctrl-d`/`Ctrl-u` move half a page and
 PageUp/PageDown move a full page while keeping the text cursor visible. `Space
 f` cycles format, `Space w` toggles wrapping, and `Space l` loads the next
-value page. Pane focus uses `Ctrl-w h/l` or Tab/BackTab; `h`/`l` in Preview
+value page. Pane focus uses `Ctrl+h/l` or `Ctrl-w h/l`; `h`/`l` in Preview
 remain text motions. Keys folders use the same group icons, colors, and selection
 behavior as Explorer; leaf keys use a key icon.
 

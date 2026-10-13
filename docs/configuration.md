@@ -175,6 +175,8 @@ defaults to `F2`. The current Leader commands are
 `run-leader-buffer`, and `open-target-selector`.
 The pane commands are `focus-pane-left`, `focus-pane-down`, `focus-pane-up`,
 `focus-pane-right`, `toggle-pane-maximized`, and `reset-pane-sizes`.
+The defaults use `Ctrl+h/j/k/l` for directional pane focus, `[` and `]` for
+workspace tabs, and `Tab` / `Ctrl-Tab` for the active Results pane's view tabs.
 The opt-in `smart-toggle-pane-maximized` command synchronizes the focused pane
 with its Kitty tab's stack/previous layout. Bind it to a single key chord; see
 [Kitty synchronized maximize](keybindings.md#kitty-synchronized-maximize).

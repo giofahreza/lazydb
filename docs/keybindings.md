@@ -26,6 +26,12 @@ focus-pane-left = ["Cmd+Ctrl+h", "Ctrl-w h"]
 focus-pane-down = ["Alt+j"]
 ```
 
+By default, `Ctrl+h/j/k/l` moves focus left/down/up/right between visible
+panes. `[` and `]` switch to the previous or next workspace tab. In the
+Results pane, `Tab` and `Ctrl-Tab` switch the pane's view, such as Data and
+DDL for a relation or Data and Output for a SQL console. `Ctrl-w h/j/k/l`
+remains available as an alternate pane navigation sequence.
+
 For Kitty cross-pane focus, opt in to the smart pane commands separately. The
 default preset leaves these commands unbound so existing users are not changed:
 
@@ -232,7 +238,9 @@ Relation Data while edits or transaction restrictions are pending.
 | `?` | Open Help outside Editor search/input states |
 | `Ctrl-c` | Quit globally; context-specific cancellation may also be offered by its modal |
 | `Ctrl-Shift-s` | Release mouse capture for terminal-native text selection; press `Esc` to return |
-| `Tab` / `Shift-Tab` | Move focus between workspace panes where applicable |
+| `Ctrl+h/j/k/l` | Move focus left/down/up/right between panes |
+| `Tab` / `Ctrl-Tab` | Switch the active Results pane view, such as Data/DDL |
+| `[` / `]` | Previous/next workspace tab |
 | `Ctrl-PageUp` / `Ctrl-PageDown` | Previous/next workspace tab |
 | `Q` | Quit from Editor Normal mode |
 
@@ -261,16 +269,17 @@ role this session cannot assume.
 
 ## Pane Navigation and Resize
 
-`Ctrl-w` is an application pane prefix outside Editor Insert/Replace and outside
-editor-owned binding states. Candidates depend on the current layout.
+`Ctrl+h/j/k/l` moves between panes directly. The older `Ctrl-w` pane prefix
+remains available outside Editor Insert/Replace and editor-owned binding states.
+Candidates depend on the current layout.
 
 | Context | Valid directions |
 | --- | --- |
-| SQL Explorer | `l` to Editor |
-| SQL Editor | `h` to Explorer, `j` to Results |
-| SQL Results | `h` to Explorer, `k` to Editor |
-| Relation Explorer | `l` to Results |
-| Relation Data, DDL, or Busy | `h` to Explorer |
+| SQL Explorer | `Ctrl-l` to Editor |
+| SQL Editor | `Ctrl-h` to Explorer, `Ctrl-j` to Results |
+| SQL Results | `Ctrl-h` to Explorer, `Ctrl-k` to Editor |
+| Relation Explorer | `Ctrl-l` to Results |
+| Relation Data, DDL, or Busy | `Ctrl-h` to Explorer |
 
 `Ctrl-w +`, `Ctrl-w -`, `Ctrl-w >`, and `Ctrl-w <` resize the corresponding
 focused split. `Ctrl-w =` restores default pane sizes. Unsupported directions
@@ -412,8 +421,8 @@ open and input is blocked until the result arrives.
 | `Space d` | Choose execution target |
 | `Space r` / `Space R` | Run current/all SQL through EditorLeader |
 | `Space tt/tc/tr` | Toggle, commit, or roll back transaction through EditorLeader |
-| `g` then `g/t/T` | First item or next/previous tab |
-| `[` then `t`, `]` then `t` | Tab aliases |
+| `g` then `g` | First item |
+| `[` / `]` | Previous/next workspace tab |
 | `?` | Open contextual Help |
 | `Space ?` | Open editor Help through EditorLeader |
 

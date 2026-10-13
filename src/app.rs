@@ -2809,6 +2809,9 @@ impl App {
             Id::NextTab => vec![Action::NextTab],
             Id::PreviousTabAlias => vec![Action::PreviousTab],
             Id::NextTabAlias => vec![Action::NextTab],
+            Id::SwitchContentTab => crate::input::keymap::result_view_tab_action(self)
+                .into_iter()
+                .collect(),
             Id::MoveTabRight => vec![Action::MoveTabRight],
             Id::MoveTabLeft => vec![Action::MoveTabLeft],
             Id::OpenDashboard => vec![Action::OpenDashboard],

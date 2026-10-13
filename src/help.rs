@@ -353,6 +353,7 @@ pub enum HelpShortcutId {
     NextTab,
     PreviousTabAlias,
     NextTabAlias,
+    SwitchContentTab,
     MoveTabRight,
     MoveTabLeft,
     OpenDashboard,
@@ -635,6 +636,7 @@ const fn footer_priority(id: HelpShortcutId) -> Option<u8> {
     Some(match id {
         ExplorerMoveDown
         | EditorInsert
+        | SwitchContentTab
         | ResultsMoveLeft
         | OutputMove
         | RelationDdlMove
@@ -1146,12 +1148,19 @@ static SHORTCUT_CATALOG: &[Shortcut] = &[
             EditorVisual,
             SqlResultsData,
             SqlOutput,
-            RelationDataBrowse
+            RelationDataBrowse,
+            RelationDataVisual,
+            RelationDataBusy,
+            RelationDdl,
+            PrincipalDdl,
+            RedisKeys,
+            RedisPreview,
+            RedisPreviewVisual,
+            RedisPreviewTable,
+            Dashboard
         ],
-        "gT",
-        "previous tab",
-        Goto,
-        "T"
+        "[",
+        "previous workspace tab"
     ),
     row!(
         NextTab,
@@ -1160,12 +1169,19 @@ static SHORTCUT_CATALOG: &[Shortcut] = &[
             EditorVisual,
             SqlResultsData,
             SqlOutput,
-            RelationDataBrowse
+            RelationDataBrowse,
+            RelationDataVisual,
+            RelationDataBusy,
+            RelationDdl,
+            PrincipalDdl,
+            RedisKeys,
+            RedisPreview,
+            RedisPreviewVisual,
+            RedisPreviewTable,
+            Dashboard
         ],
-        "gt",
-        "next tab",
-        Goto,
-        "t"
+        "]",
+        "next workspace tab"
     ),
     row!(
         MoveTabRight,
@@ -1196,36 +1212,18 @@ static SHORTCUT_CATALOG: &[Shortcut] = &[
         "move tab left"
     ),
     row!(
-        PreviousTabAlias,
+        SwitchContentTab,
         [
-            EditorNormal,
-            EditorVisual,
             SqlResultsData,
             SqlOutput,
             RelationDataBrowse,
+            RelationDataVisual,
+            RelationDataBusy,
             RelationDdl,
             PrincipalDdl
         ],
-        "[t",
-        "previous tab",
-        Previous,
-        "t"
-    ),
-    row!(
-        NextTabAlias,
-        [
-            EditorNormal,
-            EditorVisual,
-            SqlResultsData,
-            SqlOutput,
-            RelationDataBrowse,
-            RelationDdl,
-            PrincipalDdl
-        ],
-        "]t",
-        "next tab",
-        Next,
-        "t"
+        "Tab / Ctrl-Tab",
+        "switch view in this pane"
     ),
     row!(
         OpenSqlEditors,
@@ -3729,7 +3727,8 @@ fn footer_rank(
             Id::OutputSelect => Some(4),
             Id::OutputCopy => Some(5),
             Id::ResultsToggleView => Some(6),
-            Id::Help => Some(7),
+            Id::SwitchContentTab => Some(7),
+            Id::Help => Some(8),
             _ => None,
         },
         ShortcutContext::SqlResultsData => match id {
@@ -3741,8 +3740,9 @@ fn footer_rank(
             Id::ResultsCopyCell => Some(6),
             Id::ResultsCopyRow => Some(7),
             Id::ResultsToggleView => Some(8),
-            Id::DataQueryWhere => Some(9),
-            Id::Help => Some(10),
+            Id::SwitchContentTab => Some(9),
+            Id::DataQueryWhere => Some(10),
+            Id::Help => Some(11),
             _ => None,
         },
         ShortcutContext::Dashboard => match id {
@@ -3759,8 +3759,9 @@ fn footer_rank(
             Id::RelationDdlSelect => Some(4),
             Id::RelationDdlCopy => Some(5),
             Id::RelationDdlData => Some(6),
-            Id::RelationRefresh => Some(7),
-            Id::Help => Some(8),
+            Id::SwitchContentTab => Some(7),
+            Id::RelationRefresh => Some(8),
+            Id::Help => Some(9),
             _ => None,
         },
         ShortcutContext::RelationDataBrowse if capabilities.relation_edit_available => match id {
@@ -3774,6 +3775,7 @@ fn footer_rank(
             Id::RelationVisualLine => Some(9),
             Id::RelationPaste => Some(10),
             Id::RelationCommit => Some(11),
+            Id::SwitchContentTab => Some(12),
             _ => None,
         },
         ShortcutContext::RelationDataBrowse => match id {
@@ -3787,6 +3789,7 @@ fn footer_rank(
             Id::RelationWhere => Some(9),
             Id::RelationOrderBy => Some(10),
             Id::RelationRefresh => Some(11),
+            Id::SwitchContentTab => Some(12),
             _ => None,
         },
         ShortcutContext::RelationDataEdit => match id {
@@ -3806,12 +3809,14 @@ fn footer_rank(
             Id::RelationVisualYank => Some(2),
             Id::RelationVisualDelete => Some(3),
             Id::RelationVisualCancel => Some(4),
+            Id::SwitchContentTab => Some(5),
             _ => None,
         },
         ShortcutContext::RelationDataBusy => match id {
             Id::RelationBusyData => Some(2),
             Id::RelationBusyRefresh => Some(3),
-            Id::Help => Some(4),
+            Id::SwitchContentTab => Some(4),
+            Id::Help => Some(5),
             _ => None,
         },
         ShortcutContext::CatalogEditorTableColumns => match id {
